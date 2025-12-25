@@ -10,10 +10,13 @@ class Product(models.Model):
     image = models.ImageField(upload_to="products/")
     discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     stock = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
 
-    def _str_(self):
+    # discount model / one to many
+    
+    def __str__(self):
         return self.name
 
 class ProductStore(models.Model):
@@ -22,6 +25,14 @@ class ProductStore(models.Model):
     store_price = models.DecimalField(max_digits=10, decimal_places=2)
     store_discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     created_at = models.DateField(auto_now_add=True)
+    stock = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    def _str_(self):
+
+    def __str__(self):
         return f"{self.product.name} in {self.store.name}"
+    
+    @property
+    def discount_price(self):
+        return self.store_price * (1 - self.store_discount / 100)

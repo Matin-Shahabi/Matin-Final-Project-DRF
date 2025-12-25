@@ -26,12 +26,12 @@ STATIC_ROOT = BASE_DIR / "static"
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-pwwqce*-^7$_))z_0#$tu(l9oq38kwv!8677i@7c3cst1ct52d'
 
+SECRET_KEY = os.environ.get("SECRET_KEY","unsafe-secret")
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG","False") == "True"
 
-ALLOWED_HOSTS = ["localhost","127.0.0.1"]
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS","127.0.0.1,localhost").split(",")
 
 
 # Application definition
@@ -93,11 +93,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "online_shop",
-        "USER": "postgres",
-        "PASSWORD": "postgres",
-        "HOST": "db",
-        "PORT": 5432,
+        "NAME": os.environ.get("POSTGRES_DB"),
+        "USER": os.environ.get("POSTGRES_USER"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
+        "HOST": os.environ.get("POSTGRES_HOST", "db"),
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
     }
 }
 
@@ -147,6 +147,8 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-
+REST_FRAMEWORK = {
+    "DEFAULT_PAGINATION_CLASS" : "rest_framework.pagination.PageNumberPagination","PAGE_SIZE":10,
+}
 # Custom User Model
 AUTH_USER_MODEL = "users.CustomUser"

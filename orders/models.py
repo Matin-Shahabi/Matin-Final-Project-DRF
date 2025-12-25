@@ -21,7 +21,7 @@ class Order(models.Model):
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def _str_(self):
+    def __str__(self):
         return f"Order #{self.id} by {self.user.username}"
 
 class OrderItem(models.Model):
@@ -33,7 +33,7 @@ class OrderItem(models.Model):
     final_price_snapshot = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveSmallIntegerField()
 
-    def _str_(self):
+    def __str__(self):
         return f"{self.quantity} x ProductID {self.product_id_snapshot} in Order #{self.order.id}"
 
 class OrderStatusHistory(models.Model):
@@ -41,5 +41,5 @@ class OrderStatusHistory(models.Model):
     status = models.CharField(max_length=10)
     changed_at = models.DateTimeField(auto_now_add=True)
 
-    def _str_(self):
+    def __str__(self):
         return f"{self.order} -> {self.status} at {self.changed_at}"

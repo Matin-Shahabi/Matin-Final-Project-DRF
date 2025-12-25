@@ -10,5 +10,5 @@ class Store(models.Model):
     sales_count = models.IntegerField(default=0)
     total_product = models.IntegerField(default=0)
 
-    def _str_(self):
+    def __str__(self):
         return self.name

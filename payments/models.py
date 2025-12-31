@@ -1,8 +1,9 @@
 from django.db import models
 from django.utils import timezone
+from users.models import BaseModel
 
 
-class Payment(models.Model):
+class Payment(BaseModel):
     PAYMENT_TYPES = (
         ("card", "Card"),
         ("cash", "Cash"),
@@ -31,7 +32,6 @@ class Payment(models.Model):
         default="pending"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
 
     order = models.OneToOneField(
         "orders.Order",
@@ -48,7 +48,7 @@ class Payment(models.Model):
     
 
 
-class Transaction(models.Model):
+class Transaction(BaseModel):
     STATUS_CHOICES = (
         ("initiated", "Initiated"),
         ("success", "Success"),
@@ -87,7 +87,6 @@ class Transaction(models.Model):
         blank=True
     )  # جواب کامل درگاه (خیلی مهم)
 
-    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Transaction #{self.id} - {self.status}"

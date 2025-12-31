@@ -1,8 +1,8 @@
 from django.db import models
-from users.models import CustomUser
+from users.models import CustomUser,BaseModel
 from products.models import ProductStore
 
-class Cart(models.Model):
+class Cart(BaseModel):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="carts")
 
     def __str__(self):

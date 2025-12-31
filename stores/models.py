@@ -1,7 +1,7 @@
 from django.db import models
-from users.models import CustomUser
+from users.models import CustomUser,BaseModel
 
-class Store(models.Model):
+class Store(BaseModel):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="stores")
     name = models.CharField(max_length=255)
     address = models.TextField()

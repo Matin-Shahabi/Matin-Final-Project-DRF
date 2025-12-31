@@ -44,6 +44,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     "rest_framework",
+    "corsheaders",
+    "django_filters",
+    "rest_framework_simplejwt",
     "users",       
     "stores",      
     "categories",  
@@ -57,7 +60,11 @@ INSTALLED_APPS = [
 
 ]
 
+
+
+
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -147,8 +154,33 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-REST_FRAMEWORK = {
-    "DEFAULT_PAGINATION_CLASS" : "rest_framework.pagination.PageNumberPagination","PAGE_SIZE":10,
-}
+
 # Custom User Model
 AUTH_USER_MODEL = "users.CustomUser"
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 10,
+}
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+}
+
+
+SMS_IR_API_KEY = os.getenv("SMS_IR_API_KEY")
+SMS_IR_PATTERN_ID = os.getenv("SMS_IR_PATTERN_ID")
+SMS_IR_LINE_NUMBER = os.getenv("SMS_IR_LINE_NUMBER")

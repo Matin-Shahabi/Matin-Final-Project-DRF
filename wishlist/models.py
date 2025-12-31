@@ -1,8 +1,8 @@
 from django.db import models
-from users.models import CustomUser
+from users.models import CustomUser,BaseModel
 from products.models import Product
 
-class Wishlist(models.Model):
+class Wishlist(BaseModel):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="wishlists")
 
     def __str__(self):

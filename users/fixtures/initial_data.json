@@ -1,0 +1,195 @@
+[
+  {
+    "model": "users.customuser",
+    "pk": 1,
+    "fields": {
+      "username": "09120000001",
+      "phone": "09120000001",
+      "role": "customer",
+      "password": "pbkdf2_sha256$260000$test$hashedpassword",
+      "is_active": true,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 2,
+    "fields": {
+      "username": "09120000002",
+      "phone": "09120000002",
+      "role": "seller",
+      "password": "pbkdf2_sha256$260000$test$hashedpassword",
+      "is_active": true,
+      "created_at": "2025-01-01T10:01:00Z",
+      "updated_at": "2025-01-01T10:01:00Z"
+    }
+  },
+
+  {
+    "model": "users.address",
+    "pk": 1,
+    "fields": {
+      "user": 1,
+      "label": "home",
+      "province": "Tehran",
+      "city": "Tehran",
+      "address": "Valiasr St",
+      "postal_code": "1234567890",
+      "is_active": true,
+      "created_at": "2025-01-01T10:02:00Z",
+      "updated_at": "2025-01-01T10:02:00Z"
+    }
+  },
+  {
+    "model": "users.address",
+    "pk": 2,
+    "fields": {
+      "user": 1,
+      "label": "work",
+      "province": "Tehran",
+      "city": "Tehran",
+      "address": "Enghelab St",
+      "postal_code": "1234567891",
+      "is_active": true,
+      "created_at": "2025-01-01T10:03:00Z",
+      "updated_at": "2025-01-01T10:03:00Z"
+    }
+  },
+
+  {
+    "model": "stores.store",
+    "pk": 1,
+    "fields": {
+      "user": 2,
+      "name": "Digital Market",
+      "address": "Tehran - Tajrish",
+      "rating": 4.5,
+      "sales_count": 120,
+      "total_product": 15,
+      "is_active": true,
+      "created_at": "2025-01-01T10:05:00Z",
+      "updated_at": "2025-01-01T10:05:00Z"
+    }
+  },
+
+  {
+    "model": "categories.category",
+    "pk": 1,
+    "fields": {
+      "name": "Mobile",
+      "description": "Mobile phones",
+      "parent": null,
+      "is_active": true,
+      "created_at": "2025-01-01T10:06:00Z",
+      "updated_at": "2025-01-01T10:06:00Z"
+    }
+  },
+  {
+    "model": "categories.category",
+    "pk": 2,
+    "fields": {
+      "name": "Laptop",
+      "description": "Laptops",
+      "parent": null,
+      "is_active": true,
+      "created_at": "2025-01-01T10:07:00Z",
+      "updated_at": "2025-01-01T10:07:00Z"
+    }
+  },
+  {
+    "model": "categories.category",
+    "pk": 3,
+    "fields": {
+      "name": "Tablet",
+      "description": "Tablets",
+      "parent": null,
+      "is_active": true,
+      "created_at": "2025-01-01T10:08:00Z",
+      "updated_at": "2025-01-01T10:08:00Z"
+    }
+  },
+  {
+    "model": "categories.category",
+    "pk": 4,
+    "fields": {
+      "name": "Accessories",
+      "description": "Accessories",
+      "parent": null,
+      "is_active": true,
+      "created_at": "2025-01-01T10:09:00Z",
+      "updated_at": "2025-01-01T10:09:00Z"
+    }
+  },
+  {
+    "model": "categories.category",
+    "pk": 5,
+    "fields": {
+      "name": "Gaming",
+      "description": "Gaming products",
+      "parent": null,
+      "is_active": true,
+      "created_at": "2025-01-01T10:10:00Z",
+      "updated_at": "2025-01-01T10:10:00Z"
+    }
+  },
+
+  {
+    "model": "products.product",
+    "pk": 1,
+    "fields": {
+      "name": "Samsung Galaxy S23",
+      "category": 1,
+      "price": "50000000",
+      "description": "Flagship Samsung phone",
+      "discount": "5",
+      "stock": 10,
+      "is_active": true,
+      "created_at": "2025-01-01T10:11:00Z",
+      "updated_at": "2025-01-01T10:11:00Z"
+    }
+  },
+
+  {
+    "model": "products.productstore",
+    "pk": 1,
+    "fields": {
+      "product": 1,
+      "store": 1,
+      "store_price": "48000000",
+      "store_discount": "4",
+      "stock": 5,
+      "is_active": true,
+      "created_at": "2025-01-01T10:12:00Z",
+      "updated_at": "2025-01-01T10:12:00Z"
+    }
+  },
+
+  {
+    "model": "reviews.review",
+    "pk": 1,
+    "fields": {
+      "user": 1,
+      "product": 1,
+      "rating": 4.7,
+      "comment": "Very good product",
+      "is_active": true,
+      "created_at": "2025-01-01T10:13:00Z",
+      "updated_at": "2025-01-01T10:13:00Z"
+    }
+  },
+
+  {
+    "model": "reviews.storereview",
+    "pk": 1,
+    "fields": {
+      "user": 1,
+      "store": 1,
+      "rating": 4.8,
+      "comment": "Great seller",
+      "is_active": true,
+      "created_at": "2025-01-01T10:14:00Z",
+      "updated_at": "2025-01-01T10:14:00Z"
+    }
+  }
+]

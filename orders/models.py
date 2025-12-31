@@ -1,10 +1,10 @@
 from django.db import models
-from users.models import CustomUser
+from users.models import CustomUser,BaseModel
 from stores.models import Store
 from products.models import ProductStore
 from coupons.models import Coupon
 
-class Order(models.Model):
+class Order(BaseModel):
     STATUS_CHOICES = (
         ("pending", "Pending"),
         ("paid", "Paid"),
@@ -19,12 +19,11 @@ class Order(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Order #{self.id} by {self.user.username}"
 
-class OrderItem(models.Model):
+class OrderItem(BaseModel):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
     store = models.ForeignKey(Store, on_delete=models.CASCADE)
     product_id_snapshot = models.IntegerField()
@@ -36,10 +35,9 @@ class OrderItem(models.Model):
     def __str__(self):
         return f"{self.quantity} x ProductID {self.product_id_snapshot} in Order #{self.order.id}"
 
-class OrderStatusHistory(models.Model):
+class OrderStatusHistory(BaseModel):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="status_history")
     status = models.CharField(max_length=10)
-    changed_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.order} -> {self.status} at {self.changed_at}"

@@ -1,9 +1,11 @@
 from django.db import models
+from users.models import BaseModel
 
-class Category(models.Model):
+
+
+class Category(BaseModel):
     name = models.CharField(max_length=255)
     description = models.TextField(max_length=300,default="No Description yet")
-    is_active = models.BooleanField(default=True)
     image = models.ImageField(
         upload_to="categories/",
         null=True,

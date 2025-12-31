@@ -1,21 +1,18 @@
+# api/serializers.py
 from rest_framework import serializers
-from .models import Category
+from categories.models import Category
 
-
-class CategorySerializer(serializers.ModelSerializer):
-    children = serializers.SerializerMethodField()
+class CategoryListSerializer(serializers.ModelSerializer):
+    image = serializers.ImageField(read_only=True)
 
     class Meta:
         model = Category
-        fields = [
-            "id",
-            "name",
-            "description",
-            "image",
-            "parent",
-            "children",
-        ]
+        fields = ['id', 'name', 'description', 'image']
 
-    def get_children(self, obj):
-        children = obj.children.filter(is_active=True)
-        return CategorySerializer(children, many=True).data
+class CategoryDetailSerializer(serializers.ModelSerializer):
+    image = serializers.ImageField(read_only=True)
+    children = CategoryListSerializer(many=True, read_only=True)  # زیر دسته‌ها رو نشون میده
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'description', 'image', 'parent', 'children']

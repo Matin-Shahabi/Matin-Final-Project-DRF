@@ -1,7 +1,8 @@
 from django.db import models
 from django.utils import timezone
+from users.models import BaseModel
 
-class Coupon(models.Model):
+class Coupon(BaseModel):
     DISCOUNT_TYPE_CHOICES = (
         ("percent", "Percent"),
         ("fixed", "Fixed"),
@@ -25,7 +26,6 @@ class Coupon(models.Model):
     start_date = models.DateTimeField(default=timezone.now)
     end_date = models.DateTimeField(null=True,blank=True)
 
-    is_active = models.BooleanField(default=True)
 
     usage_limit = models.PositiveIntegerField()
     usage_count = models.PositiveIntegerField(default=0)

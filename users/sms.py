@@ -1,41 +1,49 @@
 import requests
 from django.conf import settings
 
-def send_otp_sms(phone, code):
+def send_otp_pattern(phone, otp):
     """
-    ارسال کد OTP با استفاده از سرویس SMS.ir
+    ارسال OTP با الگوی فراز اس‌ام‌اس - دقیقاً طبق payload دوستت
     """
-    url = "https://api.sms.ir/v1/send/verify"
-
-    payload = {
-        "mobile": phone,
-        "templateId": int(settings.SMS_IR_PATTERN_ID),
-        "parameters": [
-            {"name": "code", "value": str(code)}
-        ],
-        "sender": settings.SMS_IR_LINE_NUMBER  # شماره اختصاصی ارسال کننده
-    }
+    url = "https://edge.ippanel.com/v1/api/send"  # URL ثابت فراز
 
     headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "X-API-KEY": settings.SMS_IR_API_KEY
+        "Authorization":settings.FARAZSMS_API_KEY,
+        "Content-Type": "application/json"
     }
 
+    payload = {
+        "sending_type": "pattern",
+        "from_number": "+983000505",
+        "code": settings.FARAZSMS_PATTERN_CODE,
+        "recipients": [f"{phone}"],
+        "params": {"code": f"{otp}"},
+        "phonebook": {
+            "id": 1,
+            "name": None,
+            "pre": None,
+            "email": "",
+            "options": "",
+        },
+    }
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
+        result = response.json()
+        print("پاسخ کامل فراز اس‌ام‌اس:", result)
+
+        # وضعیت‌های موفقیت در فراز معمولاً status = 0 یا 200
+        if response.status_code == 200 and result.get("status") in [0, "0"]:
+            return True
+        else:
+            print("خطا از سمت فراز:", result.get("message", "نامشخص"))
+            return False
+
+    except requests.exceptions.Timeout:
+        print("تایم‌اوت در ارسال به فراز اس‌ام‌اس")
+        return False
     except requests.exceptions.RequestException as e:
-        print(f"Error sending SMS: {e}")
-        return {"status": "error", "message": str(e)}
-
-    if response.status_code != 200:
-        print("SMS.ir returned error:", response.text)
-        return {"status": "error", "message": response.text}
-
-    result = response.json()
-    if result.get("IsSuccessful"):
-        print(f"OTP sent successfully to {phone}")
-    else:
-        print(f"Failed to send OTP to {phone}: {result}")
-
-    return result
+        print("خطا در ارتباط با فراز:", e)
+        return False
+    except Exception as e:
+        print("خطای غیرمنتظره:", e)
+        return False

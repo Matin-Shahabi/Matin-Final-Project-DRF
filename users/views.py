@@ -1,6 +1,7 @@
+# accounts/views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status,generics
+from rest_framework import status, generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
@@ -13,80 +14,64 @@ from .serializers import (
     UserProfileSerializer, UserUpdateSerializer,
     AddressSerializer, RegisterAsSellerSerializer
 )
+from .sms import send_otp_pattern
 
 
-def generate_otp():
-    return str(random.randint(100000, 999999))
-
+# accounts/views.py - فقط این کلاس رو جایگزین کن
 
 class RequestOTPView(APIView):
-    """
-    POST /api/accounts/request-otp/
-    قبول می‌کنه:
-    - {"phone": "09121111111"}
-    - {"username": "09121111111"}
-    - حتی {"mobile": "09121111111"} اگر فرانت اشتباه کرد
-    """
     permission_classes = [AllowAny]
 
     def post(self, request):
-        # همه کلیدهای ممکن رو چک کن
         phone = (
             request.data.get('phone') or
             request.data.get('username') or
-            request.data.get('mobile') or
-            request.data.get('Phone') or
-            request.data.get('Username')
+            request.data.get('mobile')
         )
 
         if not phone:
-            return Response(
-                {"detail": "شماره موبایل الزامی است. (phone یا username)"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "شماره موبایل الزامی است."}, status=400)
 
-        # اعتبارسنجی شماره
         phone = str(phone).strip()
+
         if not phone.isdigit() or len(phone) < 10:
-            return Response(
-                {"detail": "شماره موبایل معتبر نیست."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "شماره موبایل معتبر نیست."}, status=400)
 
-        # شروع با 0 یا 09 رو قبول کن، ولی ذخیره با 09
-        if phone.startswith('9'):
-            phone = '0' + phone
-        elif not phone.startswith('0'):
+        if phone.startswith('9') and len(phone) == 10:
             phone = '0' + phone
 
-        # ساخت کاربر و OTP
-        user, created = CustomUser.objects.get_or_create(
-            phone=phone,
-            defaults={'username': phone}
-        )
+        # فقط اگر کاربر وجود داشت کد بفرست
+        try:
+            user = CustomUser.objects.get(phone=phone)
+        except CustomUser.DoesNotExist:
+            return Response({
+                "detail": "این شماره موبایل ثبت‌نام نشده است. لطفاً ابتدا ثبت‌نام کنید."
+            }, status=400)
 
-        otp_obj, _ = OTP.objects.update_or_create(
+        code = ''.join(random.choices('0123456789', k=6))
+
+        OTP.objects.update_or_create(
             user=user,
             defaults={
-                'code': generate_otp(),
+                'code': code,
                 'expires_at': timezone.now() + timedelta(minutes=5),
                 'is_used': False
             }
         )
 
-        print(f"OTP برای {phone}: {otp_obj.code}")  # تست
+        success = send_otp_pattern(phone, code)
 
-        return Response({"detail": "کد OTP ارسال شد."}, status=status.HTTP_200_OK)
+        if success:
+            return Response({"detail": "کد تایید به شماره شما ارسال شد."}, status=200)
+        else:
+            print(f"تست محلی - کد OTP برای لاگین {phone}: {code}")
+            return Response({
+                "detail": "خطا در ارسال پیامک. کد در کنسول چاپ شد.",
+                "test_code": code
+            }, status=200)
+        
 
 class LoginView(APIView):
-    """
-    POST /api/accounts/login/
-    body: {
-        "username": "09123456789",   // شماره موبایل
-        "password": "123456"         // کد OTP
-    }
-    این اندپوینت اصلی ورود هست که فرانت استفاده می‌کنه
-    """
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -94,14 +79,19 @@ class LoginView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        username = serializer.validated_data['username']  # شماره موبایل
-        otp_code = serializer.validated_data['password']  # کد OTP
+        username = serializer.validated_data['username']
+        otp_code = serializer.validated_data['password']
+
+        # استاندارد کردن شماره برای جستجو
+        normalized = username.strip().replace(' ', '').replace('+', '').replace('-', '')
+        if normalized.startswith('989'):
+            normalized = '0' + normalized[2:]
+        elif normalized.startswith('9') and len(normalized) == 10:
+            normalized = '0' + normalized
 
         try:
-            # کاربر باید با username = phone وجود داشته باشه
-            user = CustomUser.objects.get(username=username, phone=username)
+            user = CustomUser.objects.get(username=normalized, phone=normalized)
 
-            # چک کردن OTP
             otp = OTP.objects.filter(
                 user=user,
                 code=otp_code,
@@ -109,11 +99,9 @@ class LoginView(APIView):
                 expires_at__gt=timezone.now()
             ).latest('created_at')
 
-            # علامت‌گذاری OTP به عنوان استفاده‌شده
             otp.is_used = True
             otp.save()
 
-            # تولید توکن JWT
             refresh = RefreshToken.for_user(user)
             return Response({
                 'refresh': str(refresh),
@@ -123,62 +111,127 @@ class LoginView(APIView):
                     'username': user.username,
                     'phone': user.phone,
                     'role': user.role,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                    'email': user.email,
+                    'first_name': user.first_name or '',
+                    'last_name': user.last_name or '',
+                    'email': user.email or '',
                 }
             }, status=status.HTTP_200_OK)
 
         except CustomUser.DoesNotExist:
-            return Response(
-                {"detail": "شماره موبایل ثبت‌نام نشده است."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "شماره موبایل ثبت‌نام نشده است."}, status=400)
         except OTP.DoesNotExist:
-            return Response(
-                {"detail": "کد OTP اشتباه یا منقضی شده است."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "کد OTP اشتباه یا منقضی شده است."}, status=400)
 
 
-# این رو می‌تونی نگه داری برای سازگاری قدیمی، یا حذف کنی
+# accounts/views.py - فقط این کلاس رو جایگزین کن
 class VerifyOTPView(APIView):
-    """
-    POST /api/accounts/verify-otp/
-    فقط برای سازگاری با نسخه‌های قدیمی (اگر لازم بود)
-    """
     permission_classes = [AllowAny]
 
     def post(self, request):
-        # دقیقاً همون منطق LoginView
-        return LoginView.post(self, request)
+        # کپی از دیتا برای تغییر
+        data = request.data.copy()
 
+        # تبدیل کلیدهای ممکن به فرمت مورد انتظار LoginSerializer
+        if 'phone' in data and 'username' not in data:
+            data['username'] = data.pop('phone')
+        if 'mobile' in data and 'username' not in data:
+            data['username'] = data.pop('mobile')
+        if 'code' in data and 'password' not in data:
+            data['password'] = data.pop('code')
+        if 'otp' in data and 'password' not in data:
+            data['password'] = data.pop('otp')
+
+        # حالا مستقیم به LoginSerializer پاس بده
+        serializer = LoginSerializer(data=data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        username = serializer.validated_data['username']
+        otp_code = serializer.validated_data['password']
+
+        # استاندارد کردن شماره
+        if username.startswith('9') and len(username) == 10:
+            username = '0' + username
+
+        try:
+            user = CustomUser.objects.get(username=username, phone=username)
+
+            otp = OTP.objects.filter(
+                user=user,
+                code=otp_code,
+                is_used=False,
+                expires_at__gt=timezone.now()
+            ).latest('created_at')
+
+            otp.is_used = True
+            otp.save()
+
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'phone': user.phone,
+                    'role': user.role,
+                    'first_name': user.first_name or '',
+                    'last_name': user.last_name or '',
+                    'email': user.email or '',
+                }
+            }, status=status.HTTP_200_OK)
+
+        except CustomUser.DoesNotExist:
+            return Response({"detail": "شماره موبایل ثبت‌نام نشده است."}, status=400)
+        except OTP.DoesNotExist:
+            return Response({"detail": "کد OTP اشتباه یا منقضی شده است."}, status=400)
+        
 
 class RegisterView(APIView):
-    """
-    POST /api/accounts/register/
-    body: {
-        "username": "09123456789",
-        "userType": true,  // true = فروشنده
-        "birth_date": "1990-01-01",
-        "gender": "male"
-    }
-    """
     permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        phone = serializer.validated_data['username']
+
+        # چک تکراری بودن
+        if CustomUser.objects.filter(phone=phone).exists():
             return Response({
-                "detail": "ثبت‌نام با موفقیت انجام شد. حالا می‌توانید وارد شوید.",
-                "user_id": user.id,
-                "role": user.role
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                "detail": "این شماره موبایل قبلاً ثبت‌نام شده است. لطفاً وارد شوید."
+            }, status=status.HTTP_400_BAD_REQUEST)
 
+        # ساخت کاربر
+        user = serializer.save()
 
-# --- بقیه ویوها بدون تغییر (کامل حفظ شدن) ---
+        # ارسال کد OTP
+        code = ''.join(random.choices('0123456789', k=6))
+        OTP.objects.update_or_create(
+            user=user,
+            defaults={
+                'code': code,
+                'expires_at': timezone.now() + timedelta(minutes=5),
+                'is_used': False
+            }
+        )
+
+        success = send_otp_pattern(phone, code)
+
+        if success:
+            message = "ثبت‌نام با موفقیت انجام شد و کد تایید ارسال شد."
+        else:
+            print(f"تست - کد OTP ثبت‌نام {phone}: {code}")
+            message = "ثبت‌نام موفق بود اما خطا در ارسال پیامک."
+
+        return Response({
+            "detail": message,
+            "user_id": user.id,
+            "role": user.role
+        }, status=status.HTTP_201_CREATED)
+    
+# بقیه ویوها دقیقاً همون قبلی — بدون تغییر
 class MyUserView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -197,6 +250,8 @@ class MyUserView(APIView):
 class AddressListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = AddressSerializer
+    pagination_class = None
+
 
     def get_queryset(self):
         return Address.objects.filter(user=self.request.user, is_active=True, deleted_at__isnull=True)

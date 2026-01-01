@@ -1,25 +1,44 @@
-# reviews/views.py
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from .models import StoreReview, Review as ProductReview
 from .serializers import UnifiedReviewSerializer
 
+
+class StandardPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+
 class MyReviewsListCreateView(generics.ListCreateAPIView):
     """
-    GET  /api/reviews/     → لیست همه نظرات کاربر
-    POST /api/reviews/     → ثبت نظر جدید (به محصول یا فروشگاه)
+    GET  /api/reviews/              → لیست همه نظرات کاربر (با pagination)
+    POST /api/reviews/              → ثبت نظر جدید (به محصول یا فروشگاه)
     """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UnifiedReviewSerializer
+    pagination_class = StandardPagination  # اضافه شد — pagination استاندارد
 
     def get_queryset(self):
         user = self.request.user
         # ترکیب نظرات محصول و فروشگاه
-        product_reviews = ProductReview.objects.filter(user=user, is_active=True, deleted_at__isnull=True)
-        store_reviews = StoreReview.objects.filter(user=user, is_active=True, deleted_at__isnull=True)
-        return list(product_reviews) + list(store_reviews)
+        product_reviews = ProductReview.objects.filter(
+            user=user,
+            is_active=True,
+            deleted_at__isnull=True
+        )
+        store_reviews = StoreReview.objects.filter(
+            user=user,
+            is_active=True,
+            deleted_at__isnull=True
+        )
+        # ترکیب و مرتب‌سازی بر اساس جدیدترین
+        combined = list(product_reviews) + list(store_reviews)
+        combined.sort(key=lambda x: x.created_at, reverse=True)
+        return combined
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -27,9 +46,11 @@ class MyReviewsListCreateView(generics.ListCreateAPIView):
         return context
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        # مرتب‌سازی بر اساس جدیدترین
-        queryset.sort(key=lambda x: x.created_at, reverse=True)
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
         return Response({
@@ -38,31 +59,31 @@ class MyReviewsListCreateView(generics.ListCreateAPIView):
         })
 
     def perform_create(self, serializer):
+        # کاربر از request گرفته می‌شه
         serializer.save()
 
 
 class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
-    GET    /api/reviews/12/
-    PUT    /api/reviews/12/
-    PATCH  /api/reviews/12/
-    DELETE /api/reviews/12/
+    GET    /api/reviews/<id>/     → جزئیات یک نظر
+    PUT    /api/reviews/<id>/     → ویرایش کامل
+    PATCH  /api/reviews/<id>/     → ویرایش جزئی
+    DELETE /api/reviews/<id>/     → حذف نرم
     """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UnifiedReviewSerializer
+    pagination_class = None  # نیازی به pagination نداره
     http_method_names = ['get', 'put', 'patch', 'delete']
 
-    def get_object(self):
-        pk = self.kwargs['pk']
+    def get_queryset(self):
+        # فقط نظرات کاربر فعلی
         user = self.request.user
+        return ProductReview.objects.filter(user=user) | StoreReview.objects.filter(user=user)
 
-        try:
-            review = ProductReview.objects.get(pk=pk, user=user, is_active=True, deleted_at__isnull=True)
-            return review
-        except ProductReview.DoesNotExist:
-            pass
-
-        review = get_object_or_404(StoreReview, pk=pk, user=user, is_active=True, deleted_at__isnull=True)
+    def get_object(self):
+        queryset = self.filter_queryset(self.get_queryset())
+        pk = self.kwargs['pk']
+        review = get_object_or_404(queryset, pk=pk, is_active=True, deleted_at__isnull=True)
         return review
 
     def get_serializer_context(self):

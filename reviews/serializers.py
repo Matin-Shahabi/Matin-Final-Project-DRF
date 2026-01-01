@@ -1,38 +1,68 @@
-# reviews/serializers.py
 from rest_framework import serializers
-from .models import StoreReview,Review as ProductReview
+from .models import StoreReview, Review as ProductReview
 from products.models import Product
 from stores.models import Store
+
 
 class UnifiedReviewSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     type = serializers.ChoiceField(choices=['product', 'store'], write_only=True)
     target_id = serializers.IntegerField(write_only=True)  # id محصول یا فروشگاه
     rating = serializers.FloatField(min_value=0.5, max_value=5.0)
-    comment = serializers.CharField(max_length=1000, allow_blank=True, required=False)
+    comment = serializers.CharField(max_length=1000, allow_blank=True, required=False, default="")
     created_at = serializers.DateTimeField(read_only=True)
 
     # فیلدهای نمایشی
     target_name = serializers.CharField(read_only=True)
-    target_image = serializers.ImageField(read_only=True, allow_null=True)
+    target_image = serializers.SerializerMethodField()  # بهتره method باشه تا null رو درست هندل کنه
+
+    # فیلدهای اضافی برای فرانت (اختیاری ولی خیلی خوبه)
+    user_name = serializers.SerializerMethodField()
+    user_avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        # Meta اختیاریه ولی برای وضوح خوبه
+        pass
+
+    def get_target_image(self, obj):
+        if hasattr(obj, 'product') and obj.product:
+            first_image = obj.product.images.first()
+            return first_image.image.url if first_image and first_image.image else None
+        elif hasattr(obj, 'store') and obj.store:
+            return obj.store.logo.url if obj.store.logo else None
+        return None
+
+    def get_user_name(self, obj):
+        if obj.user:
+            # اگر first_name یا last_name داشت، نشون بده
+            full_name = f"{obj.user.first_name or ''} {obj.user.last_name or ''}".strip()
+            if full_name:
+                return full_name
+            return obj.user.username or "ناشناس"
+        return "ناشناس"
+
+    def get_user_avatar(self, obj):
+        if obj.user and obj.user.avatar:
+            return obj.user.avatar.url
+        return None
 
     def validate(self, data):
         type_ = data.get('type')
         target_id = data.get('target_id')
 
         if type_ == 'product':
-            if not Product.objects.filter(id=target_id, is_active=True).exists():
-                raise serializers.ValidationError("محصول یافت نشد.")
+            if not Product.objects.filter(id=target_id, is_active=True, deleted_at__isnull=True).exists():
+                raise serializers.ValidationError("محصول یافت نشد یا غیرفعال است.")
         elif type_ == 'store':
-            if not Store.objects.filter(id=target_id, is_active=True).exists():
-                raise serializers.Validation("فروشگاه یافت نشد.")
+            if not Store.objects.filter(id=target_id, is_active=True, deleted_at__isnull=True).exists():
+                raise serializers.ValidationError("فروشگاه یافت نشد یا غیرفعال است.")
         else:
-            raise serializers.ValidationError("نوع نظر باید product یا store باشد.")
+            raise serializers.ValidationError("نوع نظر باید 'product' یا 'store' باشد.")
 
         return data
 
     def create(self, validated_data):
-        user = self.context['request'].user
+        user = self.context['request'].user  # کاربر لاگین شده
         type_ = validated_data.pop('type')
         target_id = validated_data.pop('target_id')
 
@@ -58,25 +88,19 @@ class UnifiedReviewSerializer(serializers.Serializer):
         return instance
 
     def to_representation(self, instance):
-        # نمایش یکپارچه برای هر دو نوع نظر
         data = {
             'id': instance.id,
+            'type': 'product' if hasattr(instance, 'product') else 'store',
+            'target_id': instance.product.id if hasattr(instance, 'product') else instance.store.id,
+            'target_name': instance.product.name if hasattr(instance, 'product') else instance.store.name,
             'rating': instance.rating,
-            'comment': instance.comment,
+            'comment': instance.comment or "",
             'created_at': instance.created_at,
+            'user_name': self.get_user_name(instance),
+            'user_avatar': self.get_user_avatar(instance),
         }
 
-        if hasattr(instance, 'product'):  # نظر محصول
-            data['type'] = 'product'
-            data['target_id'] = instance.product.id
-            data['target_name'] = instance.product.name
-            first_image = instance.product.images.first()
-            data['target_image'] = first_image.image.url if first_image else None
-
-        elif hasattr(instance, 'store'):  # نظر فروشگاه
-            data['type'] = 'store'
-            data['target_id'] = instance.store.id
-            data['target_name'] = instance.store.name
-            data['target_image'] = instance.store.logo.url if instance.store.logo else None
+        # target_image با method
+        data['target_image'] = self.get_target_image(instance)
 
         return data

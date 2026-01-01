@@ -18,10 +18,6 @@ from django.contrib import admin
 from django.urls import path,include
 from django.conf import settings
 from django.conf.urls.static import static
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
 
 
 
@@ -32,7 +28,7 @@ urlpatterns = [
     path("api/products/", include("products.urls")),
     path('api/stores/', include('stores.urls')),
     path('api/', include('users.urls')),
-    path("api/accounts/token/", TokenObtainPairView.as_view()),
+    path('api/mycart/',include('cart.urls')),
 ]
 if settings.DEBUG:
     urlpatterns += static(

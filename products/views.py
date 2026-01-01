@@ -1,6 +1,7 @@
 # api/views.py
 from rest_framework import generics, filters
-from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny
+from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Avg, Min,Count,F, ExpressionWrapper, DecimalField
 
@@ -11,12 +12,15 @@ from .serializers import (
     ReviewSerializer
 )
 
-# products/views.py
+class StandardPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
 
-# products/views.py
 
 class ProductListView(generics.ListAPIView):
     permission_classes = [AllowAny]
+    pagination_class = StandardPagination
     serializer_class = ProductListSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category']
@@ -64,17 +68,35 @@ class ProductListView(generics.ListAPIView):
     
 
 class ProductDetailView(generics.RetrieveAPIView):
-    """
-    GET /api/products/5/
-    """
     permission_classes = [AllowAny]
     queryset = Product.objects.filter(is_active=True, deleted_at__isnull=True)
     serializer_class = ProductDetailSerializer
 
     def get_object(self):
         obj = super().get_object()
-        # برای محاسبه میانگین امتیاز در جزئیات
+
+        # محاسبه sellers
+        product_stores = obj.product_stores.filter(stock__gt=0).select_related('store')
+
+        sellers = []
+        for ps in product_stores:
+            sellers.append({
+                "id": ps.id,
+                "price": float(ps.store_price),
+                "stock": ps.stock,
+                "store": {
+                    "id": ps.store.id,
+                    "name": ps.store.name,
+                    "seller": ps.store.user.id,
+                    "description": ps.store.address or ""
+                },
+                "discount_price": float(ps.discount_price) if ps.discount_price else None
+            })
+
+        obj.sellers = sellers
+        obj.best_price = min([s["discount_price"] or s["price"] for s in sellers], default=obj.price)
         obj.avg_rating = obj.reviews.aggregate(Avg('rating'))['rating__avg'] or 0
+
         return obj
 
 
@@ -99,7 +121,7 @@ class ReviewListView(generics.ListAPIView):
     """
     permission_classes = [AllowAny]
     serializer_class = ReviewSerializer
-    pagination_class = None  # یا StandardPagination با PAGE_SIZE=5 در settings
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         product_id = self.kwargs['pk']
